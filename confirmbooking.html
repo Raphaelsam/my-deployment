@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Booking</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body {
+      background-color: #f0f4f8;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .booking-container {
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      width: 90%;
+      max-width: 600px;
+      padding: 30px;
+      text-align: left;
+      color: #333;
+    }
+
+    .booking-header {
+      font-size: 24px;
+      font-weight: bold;
+      color: #002776;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .booking-info, .discount-info {
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .booking-info p, .discount-info p {
+      font-size: 16px;
+      margin: 8px 0;
+    }
+
+    .label {
+      font-weight: bold;
+      color: #555;
+    }
+
+    .discount-code {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .discount-code input {
+      flex: 1;
+      margin-right: 10px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .proceed-btn {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      color: white;
+      background-color: #1e53ff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      text-align: center;
+    }
+
+    .proceed-btn:hover {
+      background-color: #007acc;
+    }
+
+    .back-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+
+    .discount-message {
+      margin-top: -10px;
+      font-size: 14px;
+      color: green;
+    }
+
+    .error-message {
+      color: red;
+      font-size: 14px;
+      margin-top: -10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Back Button -->
+  <button class="btn btn-primary btn-sm back-button" onclick="history.back()">Back</button>
+
+  <div class="booking-container">
+    <div class="booking-header">Confirm Your Booking</div>
+
+    <!-- Booking Details Section -->
+    <div class="booking-info" id="bookingInfo">
+      <!-- Booking details will be dynamically inserted here -->
+    </div>
+
+    <!-- Discount Code Section -->
+    <div class="discount-info">
+      <h5>Apply Discount Code (Optional)</h5>
+      <div class="discount-code">
+        <input type="text" id="discountCodeInput" placeholder="Enter Discount Code" />
+        <button class="btn btn-success" id="applyDiscountBtn">Apply</button>
+      </div>
+      <div id="discountMessage" class="discount-message" style="display: none;"></div>
+      <div id="errorMessage" class="error-message" style="display: none;"></div>
+    </div>
+
+    <button class="proceed-btn" id="proceedBtn">Proceed to Pay</button>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4'; // Replace with your actual Supabase key
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  
+    document.addEventListener("DOMContentLoaded", () => {
+      // Function to extract query parameters from URL
+      function getQueryParams() {
+        const params = {};
+        const queryString = window.location.search.substring(1);
+        const queryArray = queryString.split("&");
+        queryArray.forEach(param => {
+          const [key, value] = param.split("=");
+          params[decodeURIComponent(key)] = decodeURIComponent(value);
+        });
+        return params;
+      }
+  
+      // Display booking details
+      function displayBookingDetails(details) {
+        const bookingInfo = document.getElementById("bookingInfo");
+        bookingInfo.innerHTML = `
+          <p><span class="label">Venue Name:</span> ${details.venueName || "Not Provided"}</p>
+          <p><span class="label">Location:</span> ${details.location || "Not Provided"}</p>
+          <p><span class="label">Capacity:</span> Up to ${details.capacity || "N/A"} people</p>
+          <p><span class="label">Date:</span> ${details.bookingDate || "Not Provided"}</p>
+          <p><span class="label">Time Slot:</span> ${details.timeSlot || "Not Provided"}</p>
+          <p><span class="label">Amount:</span> Rs.<span id="bookingAmount">${details.amount || "0.00"}</span></p>
+        `;
+      }
+  
+      // Get booking details from URL and display them
+      const bookingDetails = getQueryParams();
+      displayBookingDetails(bookingDetails);
+  
+      // Store the selected venue name in local storage
+      if (bookingDetails.venueName) {
+        localStorage.setItem("selectedVenueName", bookingDetails.venueName);
+      }
+  
+      document.getElementById("applyDiscountBtn").addEventListener("click", async () => {
+        const selectedVenueName = localStorage.getItem("selectedVenueName");
+        const discountCode = document.getElementById("discountCodeInput").value.trim();
+        const originalAmount = parseFloat(bookingDetails.amount);
+        const discountMessage = document.getElementById("discountMessage");
+        const errorMessage = document.getElementById("errorMessage");
+  
+        discountMessage.style.display = "none";
+        errorMessage.style.display = "none";
+  
+        if (!selectedVenueName) {
+          errorMessage.innerText = "No venue selected. Cannot apply discount.";
+          errorMessage.style.display = "block";
+          return;
+        }
+  
+        try {
+        // Query the venue table to get the venue_id
+        const { data: venueData, error: venueError } = await supabase
+          .from('venues') // Assuming 'venues' table exists
+          .select('venue_id')
+          .eq('name', selectedVenueName)
+          .single();
+
+        if (venueError || !venueData) {
+          throw new Error("Venue not found.");
+        }
+
+        const venueId = venueData.venue_id;
+
+        // Query the Supabase discounts table for the given venue_id and discount code
+        const { data: discountData, error: discountError } = await supabase
+          .from('discounts')
+          .select('*')
+          .eq('venue_id', venueId)
+          .eq('code', discountCode)
+          .eq('status', 'valid');
+
+        if (discountError || discountData.length === 0) {
+          throw new Error("No valid discount found for this venue.");
+        }
+
+        const discount = discountData[0];
+        const startDate = new Date(discount.start_date);
+        const endDate = new Date(discount.end_date);
+        const bookingDateObj = new Date(bookingDetails.bookingDate);
+
+        // Validate the date range
+        if (bookingDateObj >= startDate && bookingDateObj <= endDate) {
+          const discountPercentage = discount.percentage;
+          const discountedAmount = originalAmount - (originalAmount * (discountPercentage / 100));
+          document.getElementById("bookingAmount").innerText = discountedAmount.toFixed(2);
+          bookingDetails.amount = discountedAmount.toFixed(2);
+          bookingDetails.discount_id = discount.discount_id;
+          discountMessage.innerText = `Discount applied! You saved ${discountPercentage}% on your booking.`;
+          discountMessage.style.display = "block";
+        } else {
+          throw new Error("Discount code is not valid for the selected booking date.");
+        }
+      } catch (error) {
+        errorMessage.innerText = error.message;
+        errorMessage.style.display = "block";
+      }
+    });
+
+    // Redirect to the next page when "Proceed" is clicked
+    document.getElementById("proceedBtn").addEventListener("click", async () => {
+  const bookingDate = bookingDetails.bookingDate;
+  const timeSlot = bookingDetails.timeSlot;
+  const customerEmail = localStorage.getItem("email"); // Assuming customer email is stored in local storage
+  const errorMessage = document.getElementById("errorMessage");
+
+  errorMessage.style.display = "none";
+
+  if (!customerEmail) {
+    alert("No customer email found. Please log in.");
+    return;
+  }
+
+  try {
+    // Query the customer table to get the customer_id
+    const { data: customerData, error: customerError } = await supabase
+      .from("customers")
+      .select("customer_id")
+      .eq("email", customerEmail)
+      .single();
+
+    if (customerError || !customerData) {
+      throw new Error("Customer not found.");
+    }
+
+    const customerId = customerData.customer_id;
+
+    // Check if there is already a booking for the same customer, date, and time slot
+    const { data: existingBookings, error: bookingError } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("customer_id", customerId)
+      .eq("date", bookingDate)
+      .eq("time_slot", timeSlot);
+
+    if (bookingError) {
+      throw new Error("Failed to check existing bookings.");
+    }
+
+    if (existingBookings && existingBookings.length > 0) {
+      throw new Error(
+        "You have already requested a booking for the selected date and time slot."
+      );
+    }
+
+    // Proceed to the next page if no duplicate booking exists
+    const queryString = new URLSearchParams(bookingDetails).toString();
+    window.location.href = `payments.html?${queryString}`;
+  } catch (error) {
+    errorMessage.innerText = error.message;
+    errorMessage.style.display = "block";
+  }
+});
+
+  });
+</script>
+  
+</body>
+</html>

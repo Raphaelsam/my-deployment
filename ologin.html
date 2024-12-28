@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venue Booking System - Login</title>
+
+    <!-- Include Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Include React and ReactDOM -->
+    <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel to allow JSX in the browser -->
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Supabase client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7/dist/umd/supabase.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: url(img1.jpg);
+            background-size: cover;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-form {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 800px;
+        }
+
+        .login-form h3 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .error-message {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Root div where React will mount the app -->
+<div id="root"></div>
+
+<script type="text/babel">
+
+// Supabase client initialization
+const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// React component for Login Form
+function LoginForm() {
+    const [formData, setFormData] = React.useState({
+        username: '',
+        password: ''
+    });
+    const [errorMessage, setErrorMessage] = React.useState('');
+
+    // Handle form input changes
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prevData => ({
+            ...prevData,
+            [name]: value
+        }));
+    };
+
+    // Handle form submission
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        // Basic validation
+        if (!formData.username || !formData.password) {
+            setErrorMessage('Both fields are required');
+            return;
+        }
+
+        // Check the credentials with Supabase
+        const { data, error } = await supabase
+            .from('owners')
+            .select('*')
+            .eq('email', formData.username)
+            .eq('password', formData.password);
+
+        if (error) {
+            setErrorMessage('An error occurred while logging in. Please try again.');
+            console.error('Supabase Error:', error);
+            return;
+        }
+
+        if (data.length > 0) {
+            // If credentials match, redirect to the owner page
+            // Store variables in session storage
+            localStorage.setItem('email', formData.username);
+            alert('Login successful!');
+            window.location.href = 'odash.html';
+        } else {
+            // If no matching credentials, show error
+            setErrorMessage('Invalid username or password');
+        }
+    };
+
+    return (
+        <div className="login-form container col-md-4">
+            <h3>Login to Your Account</h3>
+            <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                    <label htmlFor="username">Email</label>
+                    <input
+                        type="text"
+                        className="form-control"
+                        id="username"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleChange}
+                        placeholder="Enter Email"
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="password">Password</label>
+                    <input
+                        type="password"
+                        className="form-control"
+                        id="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        placeholder="Enter password"
+                    />
+                </div>
+                {errorMessage && <p className="error-message">{errorMessage}</p>}
+                <button type="submit" className="btn btn-primary btn-block">Login</button>
+            </form>
+        </div>
+    );
+}
+
+// Main React App Component
+function App() {
+    return (
+        <div>
+            <LoginForm />
+        </div>
+    );
+}
+
+// Render the React component into the DOM
+ReactDOM.render(<App />, document.getElementById('root'));
+
+</script>
+
+<!-- Bootstrap JS and dependencies -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+</body>
+</html>

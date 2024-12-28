@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Requests</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        h2 {
+            text-align: center;
+            margin-top: 20px;
+            color: #333;
+        }
+
+        table {
+            width: 90%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background: #ffffff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+
+        td {
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        button:nth-child(1) {
+            background-color: #28a745; /* Accept Button */
+        }
+
+        button:nth-child(2) {
+            background-color: #dc3545; /* Reject Button */
+        }
+
+        @media (max-width: 768px) {
+            table {
+                width: 100%;
+            }
+
+            th, td {
+                padding: 10px;
+            }
+
+            button {
+                font-size: 12px;
+                padding: 5px 10px;
+            }
+        }
+
+        #backButton {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 10px 20px;
+    font-size: 14px;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+#backButton:hover {
+    background-color: #0056b3;
+}
+
+#totalRequests {
+            text-align: center;
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+    </style>
+</head>
+<body>
+    <button id="backButton" onclick="goBack()">Back</button>
+    <h2>These are your booking requests</h2>
+    <div id="totalRequests">Total Booking Requests: 0</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Booking ID</th>
+                <th>Venue</th>
+                <th>Customer</th>
+                <th>Total Price</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Time Slot</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="bookingTable">
+            <!-- Booking rows will be dynamically inserted here -->
+        </tbody>
+    </table>
+
+    <script>
+        const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+        const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_API_KEY);
+
+        async function fetchTotalRequests(ownerId) {
+    const { data: venues, error: venueError } = await supabase
+        .from('venues')
+        .select('venue_id')
+        .eq('owner_id', ownerId);
+
+    if (venueError) {
+        console.error('Error fetching venues:', venueError);
+        return 0;
+    }
+
+    if (!venues || venues.length === 0) {
+        return 0;
+    }
+
+    const venueIds = venues.map((v) => v.venue_id);
+
+    const { count, error: bookingError } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact' })
+        .in('venue_id', venueIds);
+
+    if (bookingError) {
+        console.error('Error fetching bookings count:', bookingError);
+        return 0;
+    }
+
+    return count;
+}
+
+
+async function fetchOwnerIdAndBookings() {
+    const ownerEmail = localStorage.getItem('email');
+    if (!ownerEmail) {
+        alert('No email found! Please log in.');
+        return;
+    }
+
+    const { data: owner, error: ownerError } = await supabase
+        .from('owners')
+        .select('owner_id')
+        .eq('email', ownerEmail)
+        .single();
+
+    if (ownerError || !owner) {
+        console.error('Error fetching owner ID:', ownerError);
+        alert('Owner not found. Please log in with the correct account.');
+        return;
+    }
+
+    const ownerId = owner.owner_id;
+
+    // Fetch and update the total requests count
+    const totalRequests = await fetchTotalRequests(ownerId);
+    document.getElementById('totalRequests').textContent = `Total Booking Requests: ${totalRequests}`;
+
+    fetchBookingsForOwner(ownerId);
+}
+
+
+        async function fetchBookingsForOwner(ownerId) {
+    const { data: venues, error: venueError } = await supabase
+        .from('venues')
+        .select('venue_id')
+        .eq('owner_id', ownerId);
+
+    if (venueError) {
+        console.error('Error fetching venues:', venueError);
+        return;
+    }
+
+    if (!venues || venues.length === 0) {
+        document.getElementById('bookingTable').innerHTML = '<tr><td colspan="7">No bookings found for your venues.</td></tr>';
+        return;
+    }
+
+    const venueIds = venues.map((v) => v.venue_id);
+
+    const { data: bookings, error: bookingError } = await supabase
+        .from('bookings')
+        .select(`
+            booking_id,
+            total_price,
+            status,
+            date,
+            customers (
+                first_name,
+                last_name
+            ),
+            venues (
+                name,
+                time_slot
+            )
+        `)
+        .in('venue_id', venueIds);
+
+    if (bookingError) {
+        console.error('Error fetching bookings:', bookingError);
+        return;
+    }
+
+    const formattedData = bookings.map((booking) => ({
+        booking_id: booking.booking_id,
+        customer_name: `${booking.customers.first_name} ${booking.customers.last_name}`,
+        venue_name: booking.venues.name,
+        total_price: booking.total_price,
+        status: booking.status,
+        date: booking.date,
+        timeslot: booking.venues.time_slot,
+    }));
+
+    const bookingTable = document.getElementById('bookingTable');
+    bookingTable.innerHTML = '';
+
+    if (!formattedData || formattedData.length === 0) {
+        bookingTable.innerHTML = '<tr><td colspan="7">No bookings found for your venues.</td></tr>';
+        return;
+    }
+
+    formattedData.forEach((booking) => {
+        const row = document.createElement('tr');
+        row.id = `booking-${booking.booking_id}`;
+        row.innerHTML = `
+            <td>${booking.booking_id}</td>
+            <td>${booking.venue_name}</td>
+            <td>${booking.customer_name}</td>
+            <td>${booking.total_price}</td>
+            <td>${booking.status}</td>
+            <td>${booking.date}</td>
+             <td>${booking.timeslot}</td>
+            <td>
+                ${
+                    booking.status === 'pending'
+                        ? `<button onclick="updateBookingStatus('${booking.booking_id}', 'confirmed')">Accept</button>
+                           <button onclick="updateBookingStatus('${booking.booking_id}', 'cancelled')">Reject</button>`
+                        : `Status updated to ${booking.status}`
+                }
+            </td>
+        `;
+        bookingTable.appendChild(row);
+    });
+}
+
+
+async function updateBookingStatus(bookingId, newStatus) {
+    try {
+        // Fetch the booking details
+        const { data: booking, error: fetchError } = await supabase
+            .from('bookings')
+            .select('venue_id, date, time_slot, customer_id')
+            .eq('booking_id', bookingId)
+            .single();
+
+        if (fetchError) {
+            console.error('Error fetching booking details:', fetchError);
+            alert('Failed to fetch booking details.');
+            return;
+        }
+
+        if (!booking) {
+            console.error('Booking not found.');
+            alert('Booking not found. Please try again.');
+            return;
+        }
+
+        const { venue_id, date, time_slot, customer_id } = booking;
+
+        // If the new status is "confirmed", check for conflicting bookings
+        if (newStatus === 'confirmed') {
+            const { data: conflictingBookings, error: conflictError } = await supabase
+                .from('bookings')
+                .select('booking_id, status')
+                .eq('venue_id', venue_id)
+                .eq('date', date)
+                .eq('time_slot', time_slot)
+                .neq('booking_id', bookingId) // Exclude the current booking
+                .eq('status', 'confirmed'); // Look for already confirmed bookings
+
+            if (conflictError) {
+                console.error('Error checking for conflicting bookings:', conflictError);
+                alert('Failed to check for conflicting bookings.');
+                return;
+            }
+
+            if (conflictingBookings && conflictingBookings.length > 0) {
+                alert('Another booking is already confirmed for this venue on the same date and time slot.');
+                return;
+            }
+        }
+
+        // Define the payment status
+        const paymentStatus = newStatus === 'confirmed' ? 'paid' : 'pending';
+
+        // Call the Postgres function via RPC to update the booking and payment status
+        const { data, error: rpcError } = await supabase.rpc('update_booking_and_payment', {
+            booking_id: bookingId,
+            new_status: newStatus,
+            customer_id: customer_id,
+            payment_status: paymentStatus,
+        });
+
+        if (rpcError) {
+            console.error('Error executing transaction:', rpcError);
+            alert('Failed to update booking and payment.');
+            return;
+        }
+
+        // Success message
+        alert(`Booking status successfully updated to ${newStatus}.`);
+
+        // Update the row in the table
+        const row = document.getElementById(`booking-${bookingId}`);
+        if (row) {
+            const actionCell = row.querySelector('td:last-child');
+            if (actionCell) {
+                actionCell.innerHTML = `Status updated to ${newStatus}`;
+            }
+        }
+    } catch (err) {
+        console.error('Unexpected error in updateBookingStatus:', err);
+        alert('An unexpected error occurred. Please try again.');
+    }
+}
+
+
+        fetchOwnerIdAndBookings();
+
+        function goBack() {
+            window.location.href = 'odash.html';
+        }
+    </script>
+</body>
+</html>

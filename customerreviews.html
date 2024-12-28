@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      padding: 20px;
+    }
+
+    .review-card {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 20px;
+      margin-bottom: 10px;
+    }
+
+    .review-card h5 {
+      margin: 0 0 10px;
+    }
+
+    .review-card p {
+      margin: 0;
+      color: #666;
+    }
+
+    .no-reviews {
+      text-align: center;
+      color: #888;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Customer Reviews</h1>
+    <p id="venueTitle">Loading reviews for the selected venue...</p>
+    <div id="reviewsList">
+      <!-- Reviews will be dynamically loaded here -->
+    </div>
+    <button class="btn btn-primary mt-3" onclick="goBack()">Go Back</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7/dist/umd/supabase.min.js"></script>
+  <script>
+    const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+    const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_API_KEY);
+
+    // Get venue_id from query parameters
+    const params = new URLSearchParams(window.location.search);
+    const venueId = params.get("venue_id");
+
+    // Fetch reviews for the selected venue
+    async function fetchReviews() {
+      const reviewsList = document.getElementById("reviewsList");
+      const venueTitle = document.getElementById("venueTitle");
+
+      reviewsList.innerHTML = "<p>Loading reviews...</p>"; // Show loading state
+
+      try {
+        // Fetch venue name to display in the title
+        const { data: venue, error: venueError } = await supabase
+          .from('venues') // Replace with your actual venues table name
+          .select('name')
+          .eq('venue_id', venueId)
+          .single();
+
+        if (venueError || !venue) {
+          venueTitle.textContent = "Venue not found.";
+          reviewsList.innerHTML = "";
+          return;
+        }
+
+        venueTitle.textContent = `Customer Reviews for ${venue.name}`;
+
+        // Fetch reviews for the venue
+        const { data: reviews, error: reviewsError } = await supabase
+          .from('reviews') // Replace 'reviews' with your actual reviews table name
+          .select('customer_id, rating, sugg') // Fetch customer_id, rating, and sugg fields
+          .eq('venue_id', venueId);
+
+        if (reviewsError || !reviews || reviews.length === 0) {
+          reviewsList.innerHTML = "<p class='no-reviews'>No reviews available for this venue.</p>";
+          return;
+        }
+
+        // Fetch customer names for the reviews
+        const customerIds = reviews.map(review => review.customer_id);
+        const { data: customers, error: customerError } = await supabase
+          .from('customers') // Replace with your actual customers table name
+          .select('customer_id, first_name, last_name')
+          .in('customer_id', customerIds);
+
+        if (customerError || !customers) {
+          console.error("Error fetching customer names:", customerError);
+          reviewsList.innerHTML = "<p class='no-reviews'>Failed to load customer names.</p>";
+          return;
+        }
+
+        // Map customer_id to full names
+        const customerMap = {};
+        customers.forEach(customer => {
+          customerMap[customer.customer_id] = `${customer.first_name} ${customer.last_name}`;
+        });
+
+        // Populate reviews
+        reviewsList.innerHTML = reviews
+          .map(
+            review => `
+            <div class="review-card">
+              <h5>${customerMap[review.customer_id] || "Unknown Customer"}</h5>
+              <p><strong>Rating:</strong> ${review.rating} / 5</p>
+              <p><strong>Comments:</strong> ${review.sugg || "No suggestions provided"}</p>
+            </div>
+          `
+          )
+          .join("");
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        reviewsList.innerHTML = "<p class='no-reviews'>Failed to load reviews. Please try again later.</p>";
+      }
+    }
+
+    // Go back to the previous page
+    function goBack() {
+      window.history.back();
+    }
+
+    // Fetch reviews when the page loads
+    fetchReviews();
+  </script>
+</body>
+</html>

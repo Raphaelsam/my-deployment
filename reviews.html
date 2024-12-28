@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venue Review Form</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: Arial, sans-serif;
+        }
+        .review-form-container {
+            max-width: 600px;
+            margin: 50px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .btn-primary {
+            background-color: #4CAF50;
+            border-color: #4CAF50;
+        }
+        .btn-primary:hover {
+            background-color: #45a049;
+            border-color: #45a049;
+        }
+        .form-label {
+            font-weight: bold;
+        }
+        .rating-stars input {
+            display: none;
+        }
+        .rating-stars label {
+            font-size: 1.5rem;
+            color: #ccc;
+            cursor: pointer;
+        }
+        .rating-stars input:checked ~ label {
+            color: #ff9800;
+        }
+        .rating-stars input:hover ~ label {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="review-form-container">
+        <h2 class="text-center mb-4">Venue Review</h2>
+        <form id="reviewForm">
+            <!-- Venue Name (read only) -->
+            <div class="mb-3">
+                <label for="venueName" class="form-label">Venue Name</label>
+                <input type="text" class="form-control" id="venueName" readonly>
+            </div>
+            
+            <!-- Rating -->
+            <div class="mb-3">
+                <label class="form-label">Rating</label>
+                <div class="rating-stars">
+                    <input type="radio" id="star5" name="rating" value="5" required>
+                    <label for="star5">&#9733;</label>
+                    <input type="radio" id="star4" name="rating" value="4">
+                    <label for="star4">&#9733;</label>
+                    <input type="radio" id="star3" name="rating" value="3">
+                    <label for="star3">&#9733;</label>
+                    <input type="radio" id="star2" name="rating" value="2">
+                    <label for="star2">&#9733;</label>
+                    <input type="radio" id="star1" name="rating" value="1">
+                    <label for="star1">&#9733;</label>
+                </div>
+            </div>
+            
+            <!-- Suggestions -->
+            <div class="mb-3">
+                <label for="suggestions" class="form-label">Suggestions</label>
+                <textarea class="form-control" id="suggestions" rows="4" placeholder="Share your thoughts or suggestions" required></textarea>
+            </div>
+            
+            <!-- Submit Button -->
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary w-100">Submit Review</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Bootstrap JS (Optional) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize Supabase
+        const SUPABASE_URL = "https://mhhdvnxhklmnchhcootj.supabase.co"; // Replace with your Supabase URL
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4"; // Replace with your Supabase Key
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Get booking_id and venue_id from query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const venueId = urlParams.get('venue_id');
+        let ownerId; // Global variable to store owner_id
+
+        // Populate the venue name and owner ID when the page loads
+        async function loadVenueDetails() {
+            try {
+                const { data, error } = await supabase
+                    .from('venues') // Replace with your venues table name
+                    .select('name, owner_id')
+                    .eq('venue_id', venueId)
+                    .single();
+
+                if (error || !data) {
+                    throw new Error("Venue and owner details not found.");
+                }
+
+                ownerId = data.owner_id; // Store owner_id globally
+                document.getElementById('venueName').value = data.name;
+            } catch (error) {
+                console.error(error.message);
+                alert("An error occurred while fetching venue details: " + error.message);
+            }
+        }
+
+        // Call the function to load venue details on page load
+        window.onload = loadVenueDetails;
+
+        document.getElementById('reviewForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            // Get form values
+            const venueName = document.getElementById('venueName').value;
+            const rating = document.querySelector('input[name="rating"]:checked').value;
+            const suggestions = document.getElementById('suggestions').value;
+
+            // Get email from localStorage
+            const email = localStorage.getItem('email');
+            if (!email) {
+                alert("No email found in local storage. Please log in.");
+                return;
+            }
+
+            try {
+                // Get customer_id using email
+                const { data: customerData, error: customerError } = await supabase
+                    .from('customers') // Replace with your customers table
+                    .select('customer_id')
+                    .eq('email', email)
+                    .single();
+
+                if (customerError || !customerData) {
+                    throw new Error("Customer not found.");
+                }
+
+                const customerId = customerData.customer_id;
+
+                // Insert review into reviews table
+                const { error: insertError } = await supabase
+                    .from('reviews') // Replace with your reviews table
+                    .insert({
+                        venue_id: venueId,
+                        customer_id: customerId,
+                        owner_id: ownerId, // Use global ownerId
+                        rating: parseInt(rating),
+                        sugg: suggestions
+                    });
+
+                if (insertError) {
+                    throw new Error("Error inserting review.");
+                }
+
+                alert("Review submitted successfully!");
+                document.getElementById('reviewForm').reset();
+                setTimeout(() => {
+                    window.location.href = 'customer.html';
+                }, 2000); // Wait for 2 seconds to show the success message
+            } catch (error) {
+                console.error(error.message);
+                alert("An error occurred: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

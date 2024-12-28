@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Venue Booking Search</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7/dist/umd/supabase.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .search-container {
+      width: 100%;
+      max-width: 900px;
+      padding: 25px;
+      background-color: #002776;
+      border-radius: 8px;
+      color: white;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .search-container h1 {
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .search-container p {
+      font-size: 16px;
+      color: #ddd;
+      margin-bottom: 20px;
+    }
+
+    .filter-form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .filter-form .form-control {
+      padding: 3px;
+      font-size: 14px;
+      border-radius: 5px;
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .filter-form button {
+      background-color: #1e90ff;
+      color: white;
+      font-weight: bold;
+      border-radius: 5px;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .filter-form button:hover {
+      background-color: #007acc;
+    }
+
+    .venue-list {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 20px;
+    }
+
+    .venue-card {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 20px;
+      margin-bottom: 10px;
+    }
+
+    .venue-card h4 {
+      margin: 0 0 10px;
+    }
+
+    .venue-card p {
+      margin: 0;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+   <!-- Buttons on the left -->
+   <div style="position: absolute; top: 10px; left: 8px; display: flex; flex-direction: column; gap: 10px;">
+    <button id="myBookingsBtn" class="btn btn-success" style="font-weight: bold; padding: 10px 20px;">My Bookings</button>
+    <button id="compareVenuesBtn" class="btn btn-info" style="font-weight: bold; padding: 10px 20px;">Compare Venues</button>
+    
+  </div>
+  
+
+  <div style="position: absolute; top: 10px; right: 20px;">
+    <button id="logoutBtn" class="btn btn-danger" style="font-weight: bold; padding: 10px 20px;">Logout</button>
+  </div>
+
+  <div class="search-container">
+    <h1>Find Your Next Venue</h1>
+    <p>Search deals on venues, halls, and more...</p>
+    <form class="filter-form" action="confirmbooking.html" method="GET">
+      <input type="text" id="area" class="form-control" placeholder="Enter area" required>
+      <input type="date" id="bookingDate" class="form-control" required>
+
+      <select id="timeSlot" class="form-control" required>
+        <option value="">Select Time Slot (4-hour duration)</option>
+        <option value="08:00 AM - 12:00 PM">8:00 AM - 12:00 PM</option>
+        <option value="12:00 PM - 04:00 PM">12:00 PM - 4:00 PM</option>
+        <option value="04:00 PM - 08:00 PM">4:00 PM - 8:00 PM</option>
+        <option value="08:00 PM - 12:00 AM">8:00 PM - 12:00 AM</option>
+      </select>
+
+      <select id="capacity" class="form-control">
+        <option value="">Capacity</option>
+        <option value="50">Up to 50 people</option>
+        <option value="100">Up to 100 people</option>
+        <option value="200">Up to 200 people</option>
+        <option value="500">Up to 500 people</option>
+      </select>
+      
+      <button type="button" id="searchBtn" class="btn btn-primary">Search</button>
+      <span id="dateError" style="color: red; font-size: 12px; display: none;">You cannot select a past date. Please choose a valid future date.</span>
+
+    </form>
+  </div>
+
+  <div class="venue-list" id="venueList">
+    <!-- Venue cards will be populated here -->
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+    const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_API_KEY);
+
+
+    function validateBookingDate() {
+  const bookingDateInput = document.getElementById("bookingDate");
+  const timeSlot = document.getElementById("timeSlot").value;
+  const bookingDate = new Date(bookingDateInput.value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set today's time to midnight for date-only comparison
+
+  // const dateError = document.getElementById("dateError"); // Ensure this references the correct element
+
+  // Reset error display
+  dateError.style.display = "none";
+
+  // Check if the selected date is in the past
+  if (bookingDate < today) {
+    dateError.textContent = "You cannot select a past date. Please choose a valid future date.";
+    dateError.style.display = "block"; // Show error message
+    // bookingDateInput.value = ""; // Clear invalid input
+    return false;
+  }
+
+  // Check if the selected time slot is in the past for today's date
+  if (bookingDate.toDateString() === today.toDateString() && timeSlot) {
+    const currentTime = new Date();
+    const [slotStart] = timeSlot.split(" - "); // Get the start time of the slot
+    const [hours, minutes] = slotStart.split(":");
+    const meridian = slotStart.split(" ")[1];
+    let slotTime = new Date();
+    slotTime.setHours(
+      meridian === "PM" && parseInt(hours) < 12 ? parseInt(hours) + 12 : parseInt(hours),
+      parseInt(minutes),
+      0
+    );
+
+    if (slotTime <= currentTime) {
+      dateError.textContent = "You cannot select a past time slot for today. Please choose a valid time.";
+      dateError.style.display = "block"; // Show error message
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+    // Function to fetch venues data
+    async function fetchVenues() {
+      try {
+        let { data: venues, error } = await supabase
+          .from('venues')
+          .select('venue_id, name, capacity, rate, availability_from, availability_to, location_id, time_slot');
+        if (error) throw error;
+        return venues;
+      } catch (error) {
+        console.error("Error fetching venues:", error);
+        return [];
+      }
+    }
+
+    // Function to fetch locations data
+    async function fetchLocations() {
+      try {
+        let { data: locations, error } = await supabase
+          .from('locations')
+          .select('location_id, plot_no, block, area, city');
+        if (error) throw error;
+        return locations;
+      } catch (error) {
+        console.error("Error fetching locations:", error);
+        return [];
+      }
+    }
+
+    // Function to fetch photos data
+    async function fetchPhotos() {
+      try {
+        let { data: photos, error } = await supabase
+          .from('photos')
+          .select('venue_id, photo_path');
+        if (error) throw error;
+        return photos;
+      } catch (error) {
+        console.error("Error fetching photos:", error);
+        return [];
+      }
+    }
+    async function fetchBookings() {
+  try {
+    let { data: bookings, error } = await supabase
+      .from('bookings')
+      .select('venue_id, date, time_slot, status');
+    if (error) throw error;
+    return bookings;
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    return [];
+  }
+}
+
+
+    // Function to combine venues, locations, and photos data
+    async function getVenuesWithDetails() {
+      const venues = await fetchVenues();
+      const locations = await fetchLocations();
+      const photos = await fetchPhotos();
+
+      // Create maps for quick lookup
+      const locationMap = locations.reduce((map, location) => {
+        map[location.location_id] = location;
+        return map;
+      }, {});
+      const photoMap = photos.reduce((map, photo) => {
+        map[photo.venue_id] = photo.photo_path;
+        return map;
+      }, {});
+
+      // Combine all details into one object
+      return venues.map(venue => ({
+        ...venue,
+        location: locationMap[venue.location_id] || { plot_no: 'N/A', block: 'N/A', area: 'N/A', city: 'N/A' },
+        photo: photoMap[venue.venue_id] || null
+      }));
+    }
+
+    // Function to display venues with images
+    function displayVenues(venues) {
+      const venueList = document.getElementById("venueList");
+      venueList.innerHTML = ""; // Clear existing venues
+
+      venues.forEach(venue => {
+        const venueCard = document.createElement("div");
+        venueCard.classList.add("venue-card");
+
+        venueCard.innerHTML = `
+          <h4>${venue.name}</h4>
+          <p>City: ${venue.location.city}</p>
+          <p>Plot #: ${venue.location.plot_no}</p>
+          <p>Block: ${venue.location.block}</p>
+          <p>Area: ${venue.location.area}</p>
+          <p>Capacity: Up to ${venue.capacity} people</p>
+          <p>Rate: Rs.${venue.rate}</p>
+          ${
+        venue.photo
+          ? `<img src="${venue.photo}" alt="Image of ${venue.name}" style="width: 200px; height: 150px; margin-top: 10px; border-radius: 5px;" />`
+          : `<p>No image available</p>`
+      }
+         <div class="btn-group">
+            <button 
+              class="btn btn-secondary"
+              onclick="handleBookNow('${venue.name}', '${venue.location.city}', ${venue.capacity}, ${venue.rate})"
+            >
+              Book Now
+            </button>
+            <button 
+              class="btn btn-primary"
+              onclick="handleExploreVenue('${venue.venue_id}')"
+            >
+              Explore Venue
+            </button>
+            <button 
+          class="btn btn-warning"
+          onclick="handleCustomerReviews('${venue.venue_id}')"
+        >
+          Customer Reviews
+        </button>
+          </div>
+        `;
+        venueList.appendChild(venueCard);
+      });
+    }
+
+    // Flag to track if the search button has been clicked
+let searchClicked = false;
+
+// Event listener for the search button
+document.getElementById("searchBtn").addEventListener("click", function () {
+  if (validateBookingDate()) {
+    searchClicked = true; // Mark that the search button was clicked
+    handleSearch(); // Perform the search
+  }
+});
+
+    // Function to handle "Book Now" button click
+   // Function to handle "Book Now" button click
+function handleBookNow(venueName, location, capacity, amount) {
+  const bookingDateInput = document.getElementById("bookingDate");
+  const bookingDate = bookingDateInput.value;
+  const timeSlot = document.getElementById("timeSlot").value; // Get the value of the selected option
+
+  if (!bookingDate) {
+    alert("Please select a booking date before proceeding to book.");
+    return;
+  }
+
+  if (!timeSlot) {
+    alert("Please select a time slot before proceeding to book.");
+    return;
+  }
+
+  if (!validateBookingDate()) {
+    return; // Stop if the date is invalid
+  }
+
+  // Ensure the search button has been clicked before proceeding
+  if (!searchClicked) {
+    alert("Please click the 'Search' button and select a venue before proceeding.");
+    return;
+  }
+
+  // Redirect to confirm booking page if all validations pass
+  window.location.href = `confirmbooking.html?venueName=${encodeURIComponent(venueName)}&location=${encodeURIComponent(location)}&capacity=${capacity}&amount=${amount}&bookingDate=${encodeURIComponent(bookingDate)}&timeSlot=${encodeURIComponent(timeSlot)}`;
+}
+
+    function handleExploreVenue(venueId) {
+  window.location.href = `explore.html?venue_id=${encodeURIComponent(venueId)}`;
+}
+
+function handleCustomerReviews(venueId) {
+  window.location.href = `customerreviews.html?venue_id=${encodeURIComponent(venueId)}`;
+}
+
+    
+
+    // Function to handle search and display filtered venues
+    async function handleSearch() {
+  const area = document.getElementById("area").value.toLowerCase();
+  const bookingDate = document.getElementById("bookingDate").value;
+  const timeSlot = document.getElementById("timeSlot").value; // Get selected time slot
+  const capacity = parseInt(document.getElementById("capacity").value);
+
+  const venues = await getVenuesWithDetails();
+  const bookings = await fetchBookings(); // Fetch existing bookings
+
+  // Filter venues based on selected criteria and check for conflicts
+  const filteredVenues = venues.filter(venue => {
+    // Check for conflicting bookings with status "confirmed"
+    const isBooked = bookings.some(booking =>
+      booking.venue_id === venue.venue_id &&
+      booking.date === bookingDate &&
+      booking.time_slot === timeSlot &&
+      booking.status.toLowerCase() === "confirmed" // Check if the status is "confirmed"
+    );
+
+    return (
+      !isBooked && // Exclude already booked venues
+      (!area || venue.location.area.toLowerCase().includes(area.toLowerCase())) && // Filter by area
+      (!capacity || venue.capacity >= capacity) && // Filter by capacity
+      (!bookingDate || 
+        (new Date(venue.availability_from) <= new Date(bookingDate) &&
+        new Date(bookingDate) <= new Date(venue.availability_to))) && // Filter by booking date
+      (!timeSlot || venue.time_slot === timeSlot) // Filter by time slot
+    );
+  });
+
+  // Display the filtered venues
+  displayVenues(filteredVenues);
+}    
+// Event listener for the search button
+document.getElementById("searchBtn").addEventListener("click", function () {
+  if (validateBookingDate()) {
+    handleSearch(); // Proceed with search only if the date is valid
+  }
+});
+
+    // Initial display of all venues
+    getVenuesWithDetails().then(displayVenues);
+
+    document.getElementById('myBookingsBtn').addEventListener('click', function() {
+      window.location.href = 'mybookings.html';
+    });
+
+    document.getElementById('compareVenuesBtn').addEventListener('click', function() {
+      window.location.href = 'comparevenues.html';
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', function() {
+      localStorage.clear();
+      window.location.href = 'homepage.html';
+    });
+  </script>
+
+
+</body>
+</html>

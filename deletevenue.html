@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deregister Venue</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      max-width: 500px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    label {
+      font-size: 16px;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    select, textarea, button {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      margin-bottom: 15px;
+    }
+
+    button {
+      background-color: #dc3545;
+      color: white;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #b52b37;
+    }
+
+    .success, .error {
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .success {
+      color: green;
+    }
+
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Deregister Venue</h2>
+    <form id="deregisterVenueForm">
+      <label for="venueSelect">Select Venue</label>
+      <select id="venueSelect" required>
+        <option value="">Loading venues...</option>
+      </select>
+
+      <label for="reason">Reason for Deregistration</label>
+      <textarea id="reason" rows="3" placeholder="Enter reason for deregistration" required></textarea>
+
+      <label for="comment">Additional Comments</label>
+      <textarea id="comment" rows="3" placeholder="Enter additional comments (optional)"></textarea>
+
+      <button type="submit">Deregister Venue</button>
+      <div id="feedbackMessage"></div>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+   const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+    const venueSelect = document.getElementById('venueSelect');
+    const deregisterForm = document.getElementById('deregisterVenueForm');
+    const feedbackMessage = document.getElementById('feedbackMessage');
+
+    // Populate venues based on owner email
+    async function loadVenues() {
+      const ownerEmail = localStorage.getItem('email');
+      if (!ownerEmail) {
+        feedbackMessage.textContent = 'No owner logged in.';
+        feedbackMessage.classList.add('error');
+        return;
+      }
+
+      try {
+        // Get owner_id from the email
+        const { data: owner, error: ownerError } = await supabase
+          .from('owners')
+          .select('owner_id')
+          .eq('email', ownerEmail)
+          .single();
+
+        if (ownerError || !owner) {
+          throw new Error('Owner not found.');
+        }
+
+        const ownerId = owner.owner_id;
+
+        // Fetch venues for the owner
+        const { data: venues, error: venuesError } = await supabase
+          .from('venues')
+          .select('venue_id, name')
+          .eq('owner_id', ownerId);
+
+        if (venuesError || !venues || venues.length === 0) {
+          throw new Error('No venues found.');
+        }
+
+        // Populate the dropdown
+        venueSelect.innerHTML = venues.map(
+          (venue) => `<option value="${venue.venue_id}">${venue.name}</option>`
+        ).join('');
+      } catch (err) {
+        feedbackMessage.textContent = err.message;
+        feedbackMessage.classList.add('error');
+      }
+    }
+
+    // Handle deregistration
+    deregisterForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const venueId = venueSelect.value;
+      const reason = document.getElementById('reason').value.trim();
+      const comment = document.getElementById('comment').value.trim();
+
+      feedbackMessage.textContent = '';
+      feedbackMessage.classList.remove('success', 'error');
+
+      if (!venueId || !reason) {
+        feedbackMessage.textContent = 'Please select a venue and provide a reason.';
+        feedbackMessage.classList.add('error');
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.rpc('deregister_venue', {
+          param_venue_id: venueId,
+          param_reason: reason,
+          param_comment: comment || null,
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        feedbackMessage.textContent = 'Venue deregistered successfully.';
+        feedbackMessage.classList.add('success');
+
+        // Reload venues after deregistration
+        await loadVenues();
+        deregisterForm.reset();
+      } catch (err) {
+        feedbackMessage.textContent = `Error: ${err.message}`;
+        feedbackMessage.classList.add('error');
+      }
+    });
+
+    // Load venues on page load
+    document.addEventListener('DOMContentLoaded', loadVenues);
+  </script>
+</body>
+</html>

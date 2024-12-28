@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Reviews</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7/dist/umd/supabase.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .reviews-container {
+      width: 100%;
+      max-width: 700px;
+      padding: 30px;
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
+      position: relative;
+    }
+
+    .reviews-header h1 {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #343a40;
+    }
+
+    .reviews-header p {
+      color: #6c757d;
+    }
+
+    .review-card {
+      background-color: #ffffff;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 15px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .review-card:hover {
+      transform: scale(1.02);
+      box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .review-card h5 {
+      font-size: 1.2rem;
+      margin: 0;
+      color: #495057;
+    }
+
+    .review-card p {
+      margin: 5px 0;
+      font-size: 0.95rem;
+      color: #6c757d;
+    }
+
+    .no-reviews {
+      text-align: center;
+      color: #6c757d;
+      font-size: 1.1rem;
+    }
+
+    .back-button {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container d-flex justify-content-center align-items-center">
+    <div class="reviews-container">
+      <!-- Back Button -->
+      <button class="btn btn-secondary back-button" onclick="redirectToDashboard()">Back</button>
+      
+      <div class="reviews-header text-center mb-4">
+        <h1>My Venue Reviews</h1>
+        <p class="text-muted">View ratings and feedback left for your venues.</p>
+      </div>
+      <div id="reviewsList">
+        <!-- Reviews will be populated here -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+    const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_API_KEY);
+
+    async function fetchReviews() {
+      try {
+        // Get email from localStorage
+        const email = localStorage.getItem('email');
+        if (!email) {
+          alert('No user email found in local storage. Please log in.');
+          return;
+        }
+
+        // Fetch owner_id corresponding to the email
+        let { data: owners, error: ownerError } = await supabase
+          .from('owners')
+          .select('owner_id')
+          .eq('email', email);
+
+        if (ownerError) throw ownerError;
+
+        const ownerId = owners[0]?.owner_id;
+        if (!ownerId) {
+          alert('Owner not found.');
+          return;
+        }
+
+        // Fetch reviews for the owner_id
+        let { data: reviews, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('venue_id, rating, sugg')
+          .eq('owner_id', ownerId);
+
+        if (reviewsError) throw reviewsError;
+
+        // Fetch venue names for venue_id
+        const venueIds = reviews.map(r => r.venue_id);
+        let { data: venues, error: venuesError } = await supabase
+          .from('venues')
+          .select('venue_id, name')
+          .in('venue_id', venueIds);
+
+        if (venuesError) throw venuesError;
+
+        // Map venue names
+        const venueMap = venues.reduce((map, venue) => {
+          map[venue.venue_id] = venue.name;
+          return map;
+        }, {});
+
+        // Render reviews
+        const reviewsList = document.getElementById('reviewsList');
+        reviewsList.innerHTML = ''; // Clear previous reviews
+
+        reviews.forEach(review => {
+          const venueName = venueMap[review.venue_id] || 'Unknown Venue';
+          const reviewCard = document.createElement('div');
+          reviewCard.classList.add('review-card');
+          reviewCard.innerHTML = `
+            <h5>${venueName}</h5>
+            <p><strong>Rating:</strong> ${review.rating}/5</p>
+            <p><strong>Feedback:</strong> ${review.sugg}</p>
+          `;
+          reviewsList.appendChild(reviewCard);
+        });
+
+        if (reviews.length === 0) {
+          reviewsList.innerHTML = '<p class="no-reviews">No reviews found for your venues.</p>';
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+        alert('An error occurred while fetching reviews. Please try again later.');
+      }
+    }
+
+    function redirectToDashboard() {
+      window.location.href = 'odash.html';
+    }
+
+    // Fetch and display reviews on page load
+    fetchReviews();
+  </script>
+</body>
+</html>

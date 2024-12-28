@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venue Details</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+        /* General reset and styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f2f2f2;
+        }
+
+        .content {
+            width: 300px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="date"]:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            border: none;
+            color: #fff;
+            font-size: 1em;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            text-decoration: none;
+        }
+
+        .submit-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .success-message {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            text-align: center;
+            display: none;
+        }
+
+        .error-message {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+   <div class="content">
+    <h2>Venue Details</h2>
+    <form id="venueForm">
+        <div class="form-group">
+            <label for="venueName">Venue Name:</label>
+            <input type="text" id="venueName" placeholder="Enter venue name" required>
+        </div>
+        <div class="form-group">
+            <label for="venueCapacity">Venue Capacity (in num of people):</label>
+            <input type="number" id="venueCapacity" placeholder="Enter capacity" min="1" required>
+        </div>
+        <div class="form-group">
+            <label for="venueavfrom">Availability from:</label>
+            <input type="date" id="venueavfrom" placeholder="Enter availability from" required>
+            <span id="availabilityFromError" style="color: red; font-size: 12px; display: none;">This date has passed, kindly choose a future date</span>
+        </div>
+        <div class="form-group">
+            <label for="venueavtill">Availability till:</label>
+            <input type="date" id="venueavtill" placeholder="Enter availability till" required>
+            <span id="availabilityTillError" style="color: red; font-size: 12px; display: none;">Availability till must be greater than availability from.</span>
+        </div>
+        <div class="form-group">
+            <label for="venueTimeSlot">Time Slot:</label>
+            <select id="venueTimeSlot" required>
+                <option value="08:00 AM - 12:00 PM">08:00 AM - 12:00 PM</option>
+                <option value="12:00 PM - 04:00 PM">12:00 PM - 04:00 PM</option>
+                <option value="04:00 PM - 08:00 PM">04:00 PM - 08:00 PM</option>
+                <option value="08:00 PM - 12:00 AM">08:00 PM - 12:00 AM</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="venueRate">Rate:</label>
+            <input type="number" id="venueRate" placeholder="Enter venue rate" required>
+        </div>
+        
+        
+        <button type="submit" class="submit-btn">Proceed</button>
+    </form>
+    <div id="successMessage" class="success-message">Venue details submitted successfully!</div>
+    <div id="errorMessage" class="error-message">An error occurred. Please try again.</div>
+   </div>
+
+   <script>
+    // Initialize Supabase client
+    const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function validateAvailabilityFromDate() {
+        const availabilityFromInput = document.getElementById('venueavfrom');
+        const availabilityFromError = document.getElementById('availabilityFromError');
+        const availabilityFromDate = new Date(availabilityFromInput.value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (availabilityFromDate < today) {
+            availabilityFromError.style.display = 'block';
+            return false;
+        }
+
+        availabilityFromError.style.display = 'none';
+        return true;
+    }
+
+    function validateAvailabilityTillDate() {
+        const availabilityFromInput = document.getElementById('venueavfrom');
+        const availabilityTillInput = document.getElementById('venueavtill');
+        const availabilityTillError = document.getElementById('availabilityTillError');
+
+        const availabilityFromDate = new Date(availabilityFromInput.value);
+        const availabilityTillDate = new Date(availabilityTillInput.value);
+
+        if (availabilityTillDate <= availabilityFromDate) {
+            availabilityTillError.style.display = 'block';
+            return false;
+        }
+
+        availabilityTillError.style.display = 'none';
+        return true;
+    }
+
+    
+    document.getElementById('venueForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        if (!validateAvailabilityFromDate() || !validateAvailabilityTillDate()) {
+            return;
+        }
+
+    // Get values from form inputs
+    const name = document.getElementById('venueName').value;
+    const capacity = parseInt(document.getElementById('venueCapacity').value);
+    const availability_from = document.getElementById('venueavfrom').value;
+    const availability_to = document.getElementById('venueavtill').value;
+    const rate = parseInt(document.getElementById('venueRate').value);
+    const timeSlot = document.getElementById('venueTimeSlot').value;
+    const email = localStorage.getItem('email'); // Get email from localStorage
+    
+    localStorage.setItem('name',name);
+
+    try {
+        // Fetch owner_id using email from Supabase
+        const { data: owners, error: selectError } = await supabase
+            .from('owners')
+            .select('owner_id')
+            .eq('email', email);
+
+        if (selectError) {
+            throw new Error('Failed to fetch owner ID. Please try again.');
+        }
+
+        if (!owners || owners.length === 0) {
+            throw new Error('No matching owner found. Please contact support.');
+        }
+
+        const owner_id = owners[0].owner_id;
+
+        // Insert data into Supabase "venues" table, including the time slot
+        const { data: venueData, error: insertError } = await supabase
+            .from('venues')
+            .insert([
+                {
+                    owner_id: owner_id,
+                    name: name,
+                    capacity: capacity,
+                    availability_from: availability_from,
+                    availability_to: availability_to,
+                    rate: rate,
+                    time_slot: timeSlot, // Insert time slot data
+                }
+            ]);
+
+        if (insertError) {
+            throw new Error('Failed to insert venue. Please try again.');
+        }
+
+        // Show success message and reset the form
+        document.getElementById('successMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('venueForm').reset();
+
+        // Redirect to venadd.html after successful insertion
+        setTimeout(() => {
+            window.location.href = 'venadd.html';
+        }, 1000); // Wait for 2 seconds to show the success message
+    } catch (err) {
+        console.error('Unexpected Error:', err.message || err);
+        document.getElementById('errorMessage').textContent = err.message || 'An unexpected error occurred. Please try again.';
+        document.getElementById('errorMessage').style.display = 'block';
+        document.getElementById('successMessage').style.display = 'none';
+    }
+});
+
+
+</script>
+
+</body>
+</html>

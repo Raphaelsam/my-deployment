@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Venue Comparison</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .chart-container {
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      display: inline-block;
+      padding-top: 50px;
+      box-sizing: border-box;
+    }
+
+    .chart-display {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .selection-container {
+      margin: 20px auto;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .venue-list {
+      margin-top: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .venue-list .list-group-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px;
+      margin-bottom: 5px;
+      background-color: #f8f9fa;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+    }
+
+    .venue-list .list-group-item:hover {
+      background-color: #e9ecef;
+      cursor: pointer;
+    }
+
+    .selected-venues {
+      margin-top: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .selected-venues span {
+      padding: 10px 15px;
+      background-color: #f1f1f1;
+      border-radius: 25px;
+      border: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .selected-venues span .remove {
+      margin-left: 10px;
+      cursor: pointer;
+      color: red;
+    }
+
+    .selected-venues span:hover .remove {
+      color: darkred;
+    }
+
+    .back-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Back Button -->
+  <a href="customer.html" class="btn btn-secondary back-button">Back</a>
+
+  <!-- Selection Section -->
+  <div class="selection-container">
+    <h2>Select Venues to Compare</h2>
+    <form id="venue-form">
+      <div class="form-group">
+        <label for="venueInput">Choose Venues:</label>
+        <input type="text" class="form-control" id="venueInput" placeholder="Start typing venue name..." autocomplete="off">
+        <div class="venue-list" id="venueList"></div>
+      </div>
+      <div class="selected-venues" id="selectedVenues"></div>
+      <button type="submit" class="btn btn-primary mt-3">Compare Selected Venues</button>
+    </form>
+  </div>
+
+  <div class="chart-display">
+    <div class="chart-container">
+      <canvas id="ratingChart" width="300" height="300"></canvas>
+    </div>
+    <div class="chart-container">
+      <canvas id="capacityChart" width="300" height="300"></canvas>
+    </div>
+    <div class="chart-container">
+      <canvas id="priceChart" width="300" height="300"></canvas>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS & Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+    // Initialize Supabase client
+    const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4'; // Replace with your actual Supabase key
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let venueData = {}; // Placeholder for fetched venue data
+    const allVenues = []; // Placeholder for venue names
+    let selectedVenues = []; // To store selected venues for comparison
+
+    // Fetch venues from Supabase
+    async function fetchVenueData() {
+  try {
+    const { data, error } = await supabase
+      .from('venues') // Replace with your actual table name
+      .select('*');
+
+    if (error) throw error;
+
+    // Map data into the required format
+    const venueData = {};
+    data.forEach(venue => {
+      venueData[venue.name] = {
+        id: venue.venue_id || venue.id, // Ensure the correct field for ID
+        capacity: venue.capacity,
+        price: venue.rate,
+      };
+    });
+
+    return venueData;
+  } catch (error) {
+    console.error('Error fetching venues:', error);
+    return {};
+  }
+}
+
+   // Fetch data on page load
+(async function initializeVenueData() {
+  venueData = await fetchVenueData();
+  if (venueData && Object.keys(venueData).length > 0) {
+    allVenues.push(...Object.keys(venueData)); // Populate venue names after the data is fetched
+  } else {
+    console.error("No venue data found!");
+  }
+})();
+
+    // Show suggestions for venue names
+    function showSuggestions(suggestions) {
+      const venueList = document.getElementById('venueList');
+      venueList.innerHTML = '';
+      suggestions.forEach(suggestion => {
+        const div = document.createElement('div');
+        div.className = 'list-group-item';
+        div.textContent = suggestion;
+        div.addEventListener('click', () => selectVenue(suggestion));
+        venueList.appendChild(div);
+      });
+    }
+
+    // Select a venue and add it to the comparison
+    function selectVenue(venueName) {
+      if (selectedVenues.length >= 2) {
+        alert('You can compare only two venues at a time.');
+        return;
+      }
+      if (selectedVenues.includes(venueName)) {
+        alert('Venue already selected.');
+        return;
+      }
+      selectedVenues.push(venueName);
+
+      // Update selected venues display
+      const selectedVenuesContainer = document.getElementById('selectedVenues');
+      const venueBadge = document.createElement('span');
+      venueBadge.textContent = venueName;
+      const removeButton = document.createElement('span');
+      removeButton.textContent = '✕';
+      removeButton.className = 'remove';
+      removeButton.addEventListener('click', () => {
+        selectedVenues = selectedVenues.filter(v => v !== venueName);
+        venueBadge.remove();
+        renderCharts(); //Re-render charts after removal
+      });
+      venueBadge.appendChild(removeButton);
+      selectedVenuesContainer.appendChild(venueBadge);
+
+      document.getElementById('venueInput').value = '';
+      document.getElementById('venueList').innerHTML = '';
+
+    //   if (selectedVenues.length === 2) {
+    //     renderCharts();
+    //   }
+    }
+
+    let ratingChart, capacityChart, priceChart; // Global variables to store chart instances
+
+// Function to clear and destroy existing charts
+function clearCharts() {
+  if (ratingChart) ratingChart.destroy();
+  if (capacityChart) capacityChart.destroy();
+  if (priceChart) priceChart.destroy();
+
+  // Clear and reset canvas dimensions
+  document.getElementById('ratingChart').getContext('2d').canvas.width = 300;
+  document.getElementById('ratingChart').getContext('2d').canvas.height = 300;
+  document.getElementById('capacityChart').getContext('2d').canvas.width = 300;
+  document.getElementById('capacityChart').getContext('2d').canvas.height = 300;
+  document.getElementById('priceChart').getContext('2d').canvas.width = 300;
+  document.getElementById('priceChart').getContext('2d').canvas.height = 300;
+}
+
+// Function to fetch ratings for selected venues
+async function fetchRatings() {
+    const ratingsData = {};
+    for (let venue of selectedVenues) {
+      try {
+        // Fetch venue ID from the venueData
+        const venueId = venueData[venue]?.id;
+
+        if (!venueId) {
+          console.error(`No venue ID found for ${venue}`);
+          continue;
+        }
+
+        // Fetch reviews for the current venue
+        const { data, error } = await supabase
+          .from('reviews') // Replace with your actual reviews table name
+          .select('rating')
+          .eq('venue_id', venueId);
+
+        if (error) throw error;
+
+        // Collect all ratings for this venue
+        ratingsData[venue] = data.map((review) => review.rating);
+      } catch (error) {
+        console.error(`Error fetching ratings for ${venue}:`, error);
+        ratingsData[venue] = []; // Default to an empty array in case of an error
+      }
+    }
+    return ratingsData;
+  }
+ // Render comparison charts for Rating, Capacity, and Price
+ async function renderCharts() {
+  clearCharts();
+  document.getElementById('ratingChart').innerHTML = '';
+  document.getElementById('capacityChart').innerHTML = '';
+  document.getElementById('priceChart').innerHTML = '';
+
+    const labels = selectedVenues;
+    const ratingsData = await fetchRatings();
+
+   // Rating Chart Data
+   const ratingLabels = [];
+    const ratingDatasets = [];
+
+    selectedVenues.forEach((venue, index) => {
+      const venueRatings = ratingsData[venue] || [];
+      ratingLabels.push(...venueRatings.map((_, i) => `Rating ${i + 1}`));
+
+      ratingDatasets.push({
+        label: `${venue} Ratings`,
+        data: venueRatings,
+        backgroundColor: `rgba(${54 + index * 50}, 162, 235, 0.2)`,
+        borderColor: `rgba(${54 + index * 50}, 162, 235, 1)`,
+        borderWidth: 1,
+      });
+    });
+
+       // Handle case where no ratings are available
+       if (ratingDatasets.length === 0) {
+      console.warn('No ratings data available for the selected venues.');
+      return;
+    }
+
+    // Capacity Chart Data
+const capacityData = {
+  labels: labels,
+  datasets: [{
+    label: 'Capacity (in hundreds)',
+    data: labels.map(venue => venueData[venue].capacity),
+    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+    borderColor: 'rgba(75, 192, 192, 1)',
+    borderWidth: 1
+  }]
+};
+
+// Render Rating Chart
+const ratingCtx = document.getElementById('ratingChart').getContext('2d');
+ratingChart = new Chart(ratingCtx, {
+  type: 'bar',
+  data: {
+    labels: labels, // Use venue names for x-axis labels
+    datasets: [{
+      label: 'Ratings (out of 5)',
+      data: labels.map(venue => {
+        const venueRatings = ratingsData[venue] || [];
+        const averageRating = venueRatings.length
+          ? venueRatings.reduce((sum, rating) => sum + rating, 0) / venueRatings.length
+          : 0; // Calculate average rating
+        return averageRating;
+      }),
+      backgroundColor: 'rgba(173, 216, 230, 0.6)',
+      borderColor: 'rgba(75, 216, 230, 1)',
+      borderWidth: 1
+    }]
+  },
+  options: {
+  responsive: true,
+  plugins: {
+    legend: {
+      display: true
+    },
+    title: {
+      display: true,
+      text: 'Ratings'
+    },
+    tooltip: {
+      enabled: true // Disable tooltips
+    }
+  },
+  hover: {
+    mode: null // Disable hover interactivity
+  },
+  scales: {
+    x: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: 'Venues'
+      }
+    },
+    y: {
+      beginAtZero: true,
+      max: 5,
+      title: {
+        display: true,
+        text: 'Rating (out of 5)'
+      }
+    }
+  }
+}
+
+});
+
+
+    // Price Chart Data
+    const priceData = {
+      labels: labels,
+      datasets: [{
+        label: 'Price (in thousands)',
+        data: labels.map(venue => venueData[venue].price / 1000),
+        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+        borderColor: 'rgba(255, 99, 132, 1)',
+        borderWidth: 1
+      }]
+    };
+
+   // Render Capacity Chart
+   const capacityCtx = document.getElementById('capacityChart').getContext('2d');
+  capacityChart = new Chart(capacityCtx, {
+    type: 'bar',
+    data: capacityData,
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true },
+      },
+    },
+  });
+
+
+    // Render Price Chart
+    const priceCtx = document.getElementById('priceChart').getContext('2d');
+  priceChart = new Chart(priceCtx, {
+    type: 'bar',
+    data: priceData,
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true },
+      },
+    },
+  });
+}
+
+  // Handle venue input changes and search
+  document.getElementById('venueInput').addEventListener('input', (event) => {
+    const query = event.target.value.toLowerCase();
+    const suggestions = allVenues.filter(venue => venue.toLowerCase().includes(query));
+    showSuggestions(suggestions);
+  });
+
+  // Handle form submission
+  document.getElementById('venue-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (selectedVenues.length === 2) {
+      renderCharts();
+    } else {
+      alert('Please select exactly two venues.');
+    }
+  });
+
+  // Ensure charts resize when the window size changes
+window.addEventListener('resize', () => {
+  renderCharts(); // Re-render charts on resize
+});
+
+  </script>
+
+</body>
+</html>

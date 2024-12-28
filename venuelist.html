@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Venues</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7/dist/umd/supabase.min.js"></script>
+  <style>
+    body {
+      background-color: #f4f4f9;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      margin-top: 50px;
+    }
+    .card {
+      margin-bottom: 20px;
+    }
+    .header {
+      background-color: #002776;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 24px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>My Venues</h1>
+  <p>View all venues associated with your account.</p>
+</div>
+
+<div class="container">
+  <div id="venueList" class="row">
+    <!-- Venues will be displayed here -->
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+  const SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_API_KEY);
+
+  // Function to fetch venues for the logged-in owner
+  async function fetchVenuesForOwner() {
+    try {
+      // Get the logged-in owner's email from local storage
+      const email = localStorage.getItem('email');
+      if (!email) {
+        alert('No owner logged in!');
+        return;
+      }
+
+      // Fetch the owner_id based on email
+      const { data: ownerData, error: ownerError } = await supabase
+        .from('owners')
+        .select('owner_id')
+        .eq('email', email)
+        .single();
+
+      if (ownerError || !ownerData) {
+        console.error("Error fetching owner:", ownerError);
+        alert('Owner not found!');
+        return;
+      }
+
+      const ownerId = ownerData.owner_id;
+
+      // Fetch all venues for the owner_id
+      const { data: venues, error: venueError } = await supabase
+        .from('venues')
+        .select('name')
+        .eq('owner_id', ownerId);
+
+      if (venueError) {
+        console.error("Error fetching venues:", venueError);
+        alert('Error fetching venues!');
+        return;
+      }
+
+      // Display the venues
+      displayVenues(venues);
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      alert('Something went wrong!');
+    }
+  }
+
+  // Function to display venues on the page
+  function displayVenues(venues) {
+    const venueList = document.getElementById('venueList');
+    venueList.innerHTML = ''; // Clear any existing venues
+
+    if (venues.length === 0) {
+      venueList.innerHTML = '<div class="col-12"><p class="text-center">No venues found for your account.</p></div>';
+      return;
+    }
+
+    venues.forEach(venue => {
+      const venueCard = document.createElement('div');
+      venueCard.className = 'col-md-4';
+      venueCard.innerHTML = `
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">${venue.name}</h5>
+          </div>
+        </div>
+      `;
+      venueList.appendChild(venueCard);
+    });
+  }
+
+  // Call the function to fetch and display venues
+  fetchVenuesForOwner();
+</script>
+
+</body>
+</html>

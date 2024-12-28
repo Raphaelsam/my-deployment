@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Update Venue</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7/dist/umd/supabase.min.js"></script>
+  <style>
+    body {
+      background-color: #f4f4f9;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      margin-top: 50px;
+    }
+    .form-section {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      background-color: #002776;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 24px;
+    }
+    .back-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Back Button -->
+<a href="odash.html" class="btn btn-secondary back-button">Back</a>
+
+<div class="header">
+  <h1>Update Venue Details</h1>
+</div>
+
+<div class="container">
+  <form id="updateVenueForm" class="form-section">
+    <div class="form-group">
+      <label for="venueSelect">Select Venue to Update</label>
+      <select id="venueSelect" class="form-control" required>
+        <option value="">Choose a venue</option>
+        <!-- Venues will be dynamically populated here -->
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="venueName">Venue Name (Optional)</label>
+      <input type="text" id="venueName" class="form-control" placeholder="Enter new venue name">
+    </div>
+
+    <div class="form-group">
+      <label for="price">Price (Optional)</label>
+      <input type="number" id="price" class="form-control" placeholder="Enter new price">
+    </div>
+
+    <div class="form-group">
+      <label for="capacity">Capacity (Optional)</label>
+      <input type="number" id="capacity" class="form-control" placeholder="Enter new capacity">
+    </div>
+
+    <div class="form-group">
+      <label for="plotNo">Plot Number (Optional)</label>
+      <input type="text" id="plotNo" class="form-control" placeholder="Enter new plot number">
+    </div>
+
+    <div class="form-group">
+      <label for="block">Block (Optional)</label>
+      <input type="text" id="block" class="form-control" placeholder="Enter new block">
+    </div>
+
+    <div class="form-group">
+      <label for="area">Area (Optional)</label>
+      <input type="text" id="area" class="form-control" placeholder="Enter new area">
+    </div>
+
+    <hr>
+
+    <button type="submit" class="btn btn-primary btn-block">Update Venue</button>
+  </form>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function fetchVenues() {
+    const email = localStorage.getItem('email');
+    if (!email) {
+      alert('No owner logged in!');
+      return;
+    }
+
+    const { data: ownerData, error: ownerError } = await supabase
+      .from('owners')
+      .select('owner_id')
+      .eq('email', email)
+      .single();
+
+    if (ownerError || !ownerData) {
+      console.error('Error fetching owner:', ownerError);
+      alert('Owner not found!');
+      return;
+    }
+
+    const ownerId = ownerData.owner_id;
+
+    const { data: venues, error: venueError } = await supabase
+      .from('venues')
+      .select('venue_id, name')
+      .eq('owner_id', ownerId);
+
+    if (venueError) {
+      console.error('Error fetching venues:', venueError);
+      alert('Error fetching venues!');
+      return;
+    }
+
+    const venueSelect = document.getElementById('venueSelect');
+    venues.forEach(venue => {
+      const option = document.createElement('option');
+      option.value = venue.venue_id;
+      option.textContent = venue.name;
+      venueSelect.appendChild(option);
+    });
+  }
+
+  async function updateVenue(event) {
+    event.preventDefault();
+
+    const venueId = document.getElementById('venueSelect').value;
+    const venueName = document.getElementById('venueName').value;
+    const price = document.getElementById('price').value;
+    const capacity = document.getElementById('capacity').value;
+    const plotNo = document.getElementById('plotNo').value;
+    const block = document.getElementById('block').value;
+    const area = document.getElementById('area').value;
+
+
+    if (!venueId) {
+      alert('Please select a venue to update.');
+      return;
+    }
+
+    const updates = {};
+    if (venueName) updates.name = venueName;
+    if (price) updates.rate = parseInt(price);
+    if (capacity) updates.capacity = parseInt(capacity);
+
+    try {
+      const { error: venueError } = await supabase
+        .from('venues')
+        .update(updates)
+        .eq('venue_id', venueId);
+
+      if (venueError) {
+        console.error('Error updating venue:', venueError);
+        alert('Error updating venue details!');
+        return;
+      }
+
+      if (plotNo || block || area) {
+        const { error: locationError } = await supabase
+          .from('locations')
+          .update({ plot_no: plotNo, block, area })
+          .eq('location_id', venueId);
+
+        if (locationError) {
+          console.error('Error updating location:', locationError);
+          alert('Error updating location details!');
+        }
+      }
+      alert('Venue updated successfully!');
+    } catch (error) {
+      console.error('Error updating venue:', error);
+      alert('Something went wrong!');
+    }
+  }
+
+  document.getElementById('updateVenueForm').addEventListener('submit', updateVenue);
+  fetchVenues();
+</script>
+
+</body>
+</html>

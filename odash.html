@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner's Dashboard</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Additional Custom Styling */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .dashboard-container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 350px;
+            text-align: center;
+        }
+
+        .dashboard-container h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .dashboard-btn {
+            width: 100%;
+            margin: 10px 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .dashboard-btn:last-child {
+            margin-top: 20px;
+        }
+
+        .logout-btn {
+            background-color: #dc3545;
+            border: none;
+        }
+
+        .logout-btn:hover {
+            background-color: #bb2d3b;
+        }
+
+        .dashboard-btn:hover {
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <h1>Owner's Dashboard</h1>
+        <button class="btn btn-primary dashboard-btn" onclick="navigateTo('owner.html')">Enter a New Venue </button>
+        <button class="btn btn-primary dashboard-btn" onclick="navigateTo('bookingrequest.html')">View Booking Requests</button>
+        <button class="btn btn-primary dashboard-btn" onclick="navigateTo('viewreviews.html')">View Customer Reviews</button>
+        <button class="btn btn-primary dashboard-btn" onclick="navigateTo('updatevenue.html')">Update a Venue</button>
+        <button class="btn btn-primary dashboard-btn" onclick="navigateTo('venuelist.html')">View Venues List</button>
+        <button class="btn btn-primary dashboard-btn" onclick="navigateTo('discount.html')">Give a discount</button>
+        <button class="btn btn-primary dashboard-btn" onclick="navigateTo('deletevenue.html')">Delete a Venue.</button>
+        <button class="btn logout-btn dashboard-btn" onclick="navigateTo('homepage.html')">Logout</button>
+    </div>
+
+    <script>
+        // JavaScript for navigation
+        function navigateTo(url) {
+            if (url === 'homepage.html') {
+                // Clear local storage on logout
+                localStorage.clear();
+            }
+            window.location.href = url;
+        }
+    </script>
+</body>
+</html>

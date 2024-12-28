@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Photos</title>
+   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7/dist/umd/supabase.min.js"></script>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      gap: 20px;
+    }
+
+    .upload-form {
+      background: #fff;
+      padding: 20px 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      width: 400px;
+      max-width: 90%;
+      text-align: center;
+    }
+
+    .upload-form h2 {
+      margin-bottom: 20px;
+      font-size: 24px;
+      color: #333;
+    }
+
+    .file-input {
+      display: block;
+      margin: 15px 0 20px;
+      padding: 10px;
+      width: 100%;
+      border-radius: 6px;
+      border: 2px solid #ddd;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .submit-btn {
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .submit-btn:hover {
+      background-color: #45a049;
+    }
+
+    .message {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <!-- Form for uploading the cover photo -->
+  <div class="upload-form">
+    <h2>Upload Cover Photo</h2>
+    <form id="coverPhotoForm">
+      <input type="file" name="coverPhoto" class="file-input" accept="image/*" required>
+      <button type="submit" class="submit-btn">Upload Photo</button>
+    </form>
+    <div class="message" id="coverMessage">Please upload a single cover photo.</div>
+  </div>
+
+  <!-- Form for uploading multiple photos -->
+  <div class="upload-form" id="multipleFormContainer" style="display: none;">
+    <h2>Upload Additional Photos</h2>
+    <form id="multiplePhotoForm">
+      <input type="file" name="photos[]" class="file-input" accept="image/*" multiple required>
+      <button type="submit" class="submit-btn">Upload Photos</button>
+    </form>
+    <div class="message" id="multipleMessage">You can upload multiple photos at once.</div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Initialize Supabase
+      const supabaseUrl = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4'; // Replace with your actual Supabase key
+      const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+      let coverPhotoId = null;
+
+      const coverForm = document.getElementById('coverPhotoForm');
+      const multipleFormContainer = document.getElementById('multipleFormContainer');
+      const multipleForm = document.getElementById('multiplePhotoForm');
+      const coverMessageDiv = document.getElementById('coverMessage');
+      const multipleMessageDiv = document.getElementById('multipleMessage');
+
+      // Function to check if an image already exists
+      async function checkIfImageExists(base64String) {
+        const { data, error } = await supabase
+          .from('path')
+          .select('photo_path')
+          .eq('photo_path', base64String);
+
+        if (error) {
+          console.error('Error checking image existence:', error);
+          return false;
+        }
+
+        return data && data.length > 0;
+      }
+
+      // Upload cover photo
+      coverForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const fileInput = event.target.elements['coverPhoto'];
+    const file = fileInput.files[0];
+    const uploadButton = event.target.querySelector('.submit-btn');
+
+        if (!file) {
+          coverMessageDiv.textContent = "Please select a photo.";
+          return;
+        }
+         // Disable the file input and button to prevent further selections or clicks
+    fileInput.disabled = true;
+    uploadButton.disabled = true;
+        coverMessageDiv.textContent = "Uploading...";
+        try {
+          const base64String = await convertToBase64(file);
+
+          // Check if the image already exists
+          const exists = await checkIfImageExists(base64String);
+          if (exists) {
+            coverMessageDiv.textContent = "This photo has already been uploaded.";
+            fileInput.disabled = false; // Re-enable the input
+            uploadButton.disabled = false; // Re-enable the button
+            return;
+          }
+
+          const name = localStorage.getItem('name');
+          if (!name) {
+            throw new Error('Venue name is missing. Retry.');
+          }
+
+          const { data: venues, error: selectError } = await supabase
+            .from('venues')
+            .select('venue_id')
+            .eq('name', name);
+
+          if (selectError || !venues.length) {
+            throw new Error(`Venue Selection Error: ${selectError ? selectError.message : "No venue found."}`);
+          }
+
+          const { data: photoData, error: insertError } = await supabase
+            .from('photos')
+            .insert([{ photo_path: base64String, venue_id: venues[0].venue_id }])
+            .select('photo_id');
+
+          if (insertError || !photoData.length) {
+            throw new Error(`Photo Insertion Error: ${insertError ? insertError.message : "No photo_id returned."}`);
+          }
+
+          coverPhotoId = photoData[0].photo_id;
+          coverMessageDiv.textContent = "Cover photo uploaded successfully!";
+          multipleFormContainer.style.display = "block"; // Show the multiple photos form
+        } catch (error) {
+          console.error('Error uploading cover photo:', error.message);
+          coverMessageDiv.textContent = "Failed to upload cover photo.";
+        }
+      });
+
+      // Upload multiple photos
+      multipleForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const fileInput = event.target.elements['photos[]'];
+    const files = fileInput.files;
+    const uploadButton = event.target.querySelector('.submit-btn');
+        if (!files.length) {
+          multipleMessageDiv.textContent = "Please select at least one photo.";
+          return;
+        }
+
+          // Disable the file input and button to prevent further selections or clicks
+    fileInput.disabled = true;
+    uploadButton.disabled = true;
+        multipleMessageDiv.textContent = "Uploading...";
+        try {
+          for (const file of files) {
+            const base64String = await convertToBase64(file);
+
+            // Check if the image already exists
+            const exists = await checkIfImageExists(base64String);
+            if (exists) {
+              multipleMessageDiv.textContent = "One or more photos have already been uploaded.";
+              fileInput.disabled = false; // Re-enable the input
+          uploadButton.disabled = false; // Re-enable the button
+              return;
+            }
+
+            // Insert each base64 photo into the path table
+            const { error: insertError } = await supabase
+              .from('path')
+              .insert([{ photo_path: base64String, photo_id: coverPhotoId }]);
+
+            if (insertError) {
+              throw new Error(`Path Insertion Error: ${insertError.message}`);
+            }
+          }
+          multipleMessageDiv.textContent = "Photos uploaded successfully!";
+          setTimeout(() => {
+          window.location.href = 'odash.html';
+        }, 1000); // Wait for 2 seconds to show the success message
+        } catch (error) {
+          console.error('Error uploading photos:', error.message);
+          console.error('Error uploading photos:', error.message);
+          multipleMessageDiv.textContent = "Failed to upload photos.";
+        }
+      });
+
+      // Helper function to convert file to base64
+      function convertToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = (error) => reject(error);
+        });
+      }
+    });
+  </script>
+</body>
+</html>

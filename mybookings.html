@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Bookings</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .booking-item {
+      margin-bottom: 12px;
+      padding: 12px;
+      background-color: #f9f9f9;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+  
+    .back-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+  
+    .summary-box {
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      background-color: #f1f1f1;
+      text-align: center;
+      max-width: 700px; /* Reduce box width */
+      margin-left: auto;
+      margin-right: auto;
+    }
+  
+    .summary-box p {
+      font-size: 16px; /* Reduce font size */
+      margin: 8px 0;   /* Reduce space between text */
+    }
+    
+      /* Flexbox styling for summary to display items in a row */
+      .summary-row {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+    }
+
+    .summary-box .total-label {
+      font-weight: bold;
+      font-size: 18px; /* Slightly larger font for the label */
+      margin-right: 5px; /* Adds space between label and value */
+    }
+    
+  </style>
+  
+</head>
+<body>
+
+  <!-- Back Button -->
+  <button class="btn btn-primary btn-sm back-button" onclick="history.back()">Back</button>
+
+
+  <div class="container mt-5">
+    <h2>My Bookings</h2>
+
+    <!-- Display summary -->
+<div id="summary" class="row">
+  <div class="col-md-6">
+    <div class="summary-box">
+      <div class="summary-row">
+        <p class="total-label">Total Bookings:</p>
+        <p id="totalBookings" class="total">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+     <!-- Booking list -->
+    <div id="bookingList"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+    // Initialize Supabase client
+    const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4'; // Replace with your actual Supabase key
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Fetch and display bookings when the page loads
+    async function fetchBookings() {
+      try {
+        // Get email from local storage
+        const email = localStorage.getItem('email'); // Replace with your local storage key for the email
+        if (!email) {
+          alert('User email not found in local storage!');
+          return;
+        }
+
+        // Fetch customer data
+        const { data: customerData, error: customerError } = await supabase
+          .from('customers') // Replace with your actual customer table name
+          .select('customer_id, first_name, last_name') // Fetch customer_id, first_name & last_name
+          .eq('email', email)
+          .single();
+
+        if (customerError || !customerData) {
+          console.error('Error fetching customer data:', customerError);
+          alert('Customer not found!');
+          return;
+        }
+
+        const customerId = customerData.customer_id;
+        const customerName = `${customerData.first_name} ${customerData.last_name}`;
+
+
+        // Fetch bookings for the customer_id, including the aggregate functions
+        const { data: bookings, error: bookingsError } = await supabase
+          .from('bookings') // Replace with your actual bookings table name
+          .select('booking_id, venue_id, total_price, status, date')
+          .eq('customer_id', customerId);
+
+        if (bookingsError || !bookings) {
+          console.error('Error fetching bookings:', bookingsError);
+          return;
+        }
+
+        // Fetch venue names for all bookings
+        const venueIds = bookings.map(booking => booking.venue_id);
+        const { data: venues, error: venuesError } = await supabase
+          .from('venues') // Replace with your actual venues table name
+          .select('venue_id, name') // Fetch venue_id and venue name
+          .in('venue_id', venueIds);
+
+        if (venuesError || !venues) {
+          console.error('Error fetching venue data:', venuesError);
+          return;
+        }
+
+        // Create a mapping of venue_id to venue name
+        const venueMap = {};
+        venues.forEach(venue => {
+          venueMap[venue.venue_id] = venue.name;
+        });
+
+        // Add customer name and venue name to bookings
+        bookings.forEach(booking => {
+          booking.customer_name = customerName;
+          booking.venue_name = venueMap[booking.venue_id] || 'Unknown Venue';
+        });
+
+        // Pass bookings and customerId to displayBookings
+        await displayBookings(bookings, customerId);
+
+        // Fetch and display the summary (total bookings and total spending)
+        await fetchSummary(customerId);
+
+          } catch (error) {
+            console.error('Error:', error);
+      }
+
+async function fetchSummary(customerId) {
+  try {
+    
+    const { count: totalBookings, error: countError } = await supabase
+      .from('bookings')
+      .select('customer_id', { count: 'exact' }) 
+      .eq('customer_id', customerId)
+      .eq('status', 'confirmed'); 
+
+    if (countError) {
+      console.error('Error fetching total bookings:', countError);
+      document.getElementById('totalBookings').innerText = 0; 
+      return;
+    }
+
+    
+    document.getElementById('totalBookings').innerText = totalBookings || 0;
+  } catch (error) {
+    console.error('Error in fetchSummary:', error);
+    document.getElementById('totalBookings').innerText = 0; 
+  }
+}
+
+}
+
+  // Function to display bookings on the page
+  async function displayBookings(bookings, customerId) {
+
+  const bookingList = document.getElementById('bookingList');
+  bookingList.innerHTML = ''; // Clear previous bookings if any
+
+  if (bookings.length === 0) {
+    bookingList.innerHTML = '<p>No bookings found.</p>';
+    return;
+  }
+
+  for (const booking of bookings) { // Use for...of to allow async/await inside the loop
+    const bookingDiv = document.createElement('div');
+    bookingDiv.className = 'booking-item position-relative';
+
+ // Calculate days remaining until the event date
+    const eventDate = new Date(booking.date);
+    const today = new Date();
+    const timeDifference = eventDate - today;
+    const daysRemaining = Math.ceil(timeDifference / (1000 * 60 * 60 * 24)); // Convert milliseconds to days
+
+
+    bookingDiv.innerHTML = `
+      <h5>Booking ID: ${booking.booking_id}</h5>
+      <p>Venue Name: ${booking.venue_name}</p>
+      <p>Customer Name: ${booking.customer_name}</p>
+      <p>Total Price: ${booking.total_price}</p>
+      <p>Status: ${booking.status}</p>
+      <p>Date: ${new Date(booking.date).toLocaleDateString()}</p>
+      <button class="btn btn-danger btn-sm position-absolute" style="right: 10px; bottom: 10px;" id="cancel-${booking.booking_id}">
+        Cancel Booking
+      </button>
+      <button class="btn btn-success btn-sm position-absolute" style="right: 130px; bottom: 10px;" id="review-${booking.booking_id}">
+          Leave a Review
+        </button>
+      <p class="text-danger mt-2 d-none" id="error-${booking.booking_id}" style="position: absolute; bottom: 10px; right: 130px;"></p>
+    `;
+
+    // Add event listener for the "Cancel Booking" button
+    const cancelButton = bookingDiv.querySelector(`#cancel-${booking.booking_id}`);
+    const errorMessage = bookingDiv.querySelector(`#error-${booking.booking_id}`);
+
+
+    if (daysRemaining > 5 && daysRemaining >= 0 && booking.status === 'confirmed') {
+          cancelButton.classList.remove('d-none');
+          cancelButton.addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to cancel this booking?')) {
+              return;
+            }
+
+            const { error: deleteError } = await supabase
+              .from('bookings')
+              .delete()
+              .eq('booking_id', booking.booking_id);
+
+            if (deleteError) {
+              alert(`Failed to cancel booking with ID ${booking.booking_id}. Please try again.`);
+              console.error('Error deleting booking:', deleteError);
+            } else {
+              alert(`Booking with ID ${booking.booking_id} has been successfully canceled.`);
+              bookingDiv.remove();
+            }
+          });
+        } else{
+          cancelButton.disabled = true;
+        }
+
+
+// Add event listener for the "Leave a Review" button
+const reviewButton = bookingDiv.querySelector(`#review-${booking.booking_id}`);
+
+// Check if the customer has already reviewed the venue
+const { data: existingReview, error: reviewError } = await supabase
+  .from('reviews') // Replace with your actual reviews table name
+  .select('review_id') // Fetch review_id (or any relevant column)
+  .eq('venue_id', booking.venue_id)
+  .eq('customer_id', customerId) // Ensure it's the same customer
+  .single();
+
+if (reviewError) {
+  console.error('Error checking existing review:', reviewError);
+}
+
+if (existingReview) {
+// Disable the button if a review already exists
+reviewButton.disabled = true;
+reviewButton.title = 'You have already reviewed this venue.';
+}
+else if(daysRemaining <= 0 && booking.status === 'confirmed'){
+// Only allow review if the event date has passed and status is Confirmed
+reviewButton.addEventListener('click', () => {
+    const reviewUrl = `reviews.html?booking_id=${booking.booking_id}&venue_id=${booking.venue_id}`;
+    window.location.href = reviewUrl;
+  });
+}
+ else {
+  // Optionally, you can disable the button or provide a tooltip if conditions are not met
+  reviewButton.disabled = true;
+  reviewButton.title = 'You can leave a review only after the event has occurred and the booking is confirmed.';
+}
+  
+    bookingList.appendChild(bookingDiv);
+    
+  }
+
+}
+// Fetch and display bookings when the page loads
+  fetchBookings();
+  </script>
+</body>
+</html>

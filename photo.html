@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Venue Gallery</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            background-color: #f4f4f4;
+        }
+        .gallery img {
+            width: 300px;
+            height: 200px;
+            object-fit: cover;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: transform 0.2s;
+        }
+        .gallery img:hover {
+            transform: scale(1.05);
+        }
+        /* Lightbox styling */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .lightbox img {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 8px;
+        }
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 30px;
+            color: white;
+            cursor: pointer;
+            background-color: #333;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            text-align: center;
+            line-height: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="gallery">
+        <img src="https://img.freepik.com/free-photo/decorated-banquet-hall-with-flowers_8353-10058.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="Banquet Hall">
+        <img src="https://img.freepik.com/free-photo/luxurious-dinner-hall-with-large-crystal-chandelier_8353-565.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="Dinner Hall">
+        <img src="https://img.freepik.com/free-photo/wedding-reception-hall-with-elegant-table-setting-with-candles_181624-16776.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="Wedding Reception Hall">
+        <img src="https://img.freepik.com/premium-photo/beautiful-interior-restaurant-modern-hotel-with-white-cloth-tables-soft-chairs-serving-tables-with-live-roses-3d-rendering_295714-4081.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+        <img src="https://img.freepik.com/free-photo/classic-luxury-style-restaurant-with-tables-chairs_140725-9390.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+        <img src="https://img.freepik.com/free-photo/restaurant-hall-ornated-with-flowers_140725-6308.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+        <img src="https://img.freepik.com/free-photo/restaurant-hall-with-round-square-tables-some-chairs-plants_140725-8033.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+        <img src="https://img.freepik.com/free-photo/wedding-table-that-decorated-with-flower-arrangements_146671-19446.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+        <img src="https://img.freepik.com/free-photo/new-clean-luxury-restaurant-european-style-amara-dolce-vita-luxury-hotel-resort-tekirova-kemer-turkey_146671-18744.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+        <img src="https://img.freepik.com/free-photo/restaurant-hall-with-round-square-tables-some-chairs-plants_140725-8030.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+        <img src="https://img.freepik.com/free-photo/decorated-hall-wedding-is-ready-celebration_8353-10236.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+        <img src="https://img.freepik.com/premium-photo/luxury-modern-restaurant-classic-style-with-tables-seven-people-each-3d-render_295714-1932.jpg?ga=GA1.1.1174331192.1725043762&semt=ais_hybrid" alt="">
+
+
+    </div>
+
+    <!-- Lightbox container -->
+    <div class="lightbox" id="lightbox">
+        <span class="close" onclick="closeLightbox()">&times;</span>
+        <img id="lightboxImage" src="" alt="Enlarged view">
+    </div>
+
+    <script>
+        const galleryImages = document.querySelectorAll('.gallery img');
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImage = document.getElementById('lightboxImage');
+
+        galleryImages.forEach(image => {
+            image.addEventListener('click', () => {
+                lightbox.style.display = 'flex';
+                lightboxImage.src = image.src;
+            });
+        });
+
+        function closeLightbox() {
+            lightbox.style.display = 'none';
+        }
+
+        // Close lightbox when clicking outside the image
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox || e.target.classList.contains('close')) {
+                closeLightbox();
+            }
+        });
+    </script>
+</body>
+</html>

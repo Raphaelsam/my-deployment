@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venue Address</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+        /* General Styling */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+        }
+
+        .form-container {
+            background-color: #fff;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            border: none;
+            color: #fff;
+            font-size: 1em;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            text-align: center;
+        }
+
+        .submit-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .success-message,
+        .error-message {
+            margin-top: 15px;
+            padding: 10px;
+            color: #155724;
+            border-radius: 4px;
+            display: none;
+            font-size: 0.9em;
+            text-align: center;
+        }
+
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Venue's Address</h1>
+        <form id="detailsForm">
+            <div class="form-group">
+                <label for="plot">Plot #</label>
+                <input type="text" id="plot" placeholder="Enter plot number" required>
+            </div>
+            <div class="form-group">
+                <label for="block">Block</label>
+                <input type="text" id="block" placeholder="Enter Block" required>
+            </div>
+            <div class="form-group">
+                <label for="area">Area</label>
+                <input type="text" id="area" placeholder="Enter Area" required>
+            </div>
+            <div class="form-group">
+                <label for="city">City</label>
+                <input type="text" id="city" placeholder="Enter City" required>
+            </div>
+            <button type="submit" class="submit-btn">Submit</button>
+            <div id="successMessage" class="success-message">Address added successfully!</div>
+            <div id="errorMessage" class="error-message">An error occurred. Please try again.</div>
+        </form>
+    </div>
+
+    <script>
+        // Initialize Supabase client with your Supabase URL and public API key
+        const SUPABASE_URL = 'https://mhhdvnxhklmnchhcootj.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaGR2bnhoa2xtbmNoaGNvb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEzNDk5MzUsImV4cCI6MjA0NjkyNTkzNX0.JeGtIk-HDQQSqnx-0iOvVP4mAf3bOVqjwK1q5CkYxA4';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+        const form = document.getElementById('detailsForm');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+        // Get values from form inputs
+            const plot_no = document.getElementById('plot').value.trim();
+            const block = document.getElementById('block').value.trim();
+            const area = document.getElementById('area').value.trim();
+            const city = document.getElementById('city').value.trim();
+
+             // Regular expression for plot number: Must be in the format CapitalLetter-Number (e.g., A-105)
+        const plotRegex = /^[A-Z]-\d+$/;
+
+// Regular expression for block: Must be a number only
+const blockRegex = /^\d+$/;
+
+// Validate plot number format
+if (!plotRegex.test(plot_no)) {
+    errorMessage.textContent = 'Invalid plot number format. Use format like "A-105".';
+    errorMessage.style.display = 'block';
+    successMessage.style.display = 'none';
+    return;
+}
+
+// Validate block format
+if (!blockRegex.test(block)) {
+    errorMessage.textContent = 'Invalid block format. Block must be a number only.';
+    errorMessage.style.display = 'block';
+    successMessage.style.display = 'none';
+    return;
+}
+
+            try {
+                // Insert data into Supabase "locations" table
+                const { data: insertedLocation, error: insertError } = await supabase
+                    .from('locations')
+                    .insert([
+                        {
+                            plot_no: plot_no,
+                            block: block,
+                            area: area,
+                            city: city,
+                        },
+                    ])
+                    .select(); // Use .select() to return inserted data immediately
+
+                if (insertError) {
+                    throw new Error(`Location Insert Error: ${insertError.message}`);
+                }
+
+                const location_id = insertedLocation[0]?.location_id;
+
+                if (!location_id) {
+                    throw new Error('Failed to retrieve location ID.');
+                }
+
+                // Fetch venue name from localStorage
+                const name = localStorage.getItem('name');
+                if (!name) {
+                    throw new Error('Venue name is missing. Retry.');
+                }
+
+                // Update venue with the location_id
+                const { error: updateError } = await supabase
+                    .from('venues')
+                    .update({ location_id })
+                    .eq('name', name);
+
+                if (updateError) {
+                    throw new Error(`Venue Update Error: ${updateError.message}`);
+                }
+
+                // Success handling
+                successMessage.style.display = 'block';
+                errorMessage.style.display = 'none';
+                form.reset(); // Reset the form after successful submission
+
+                // Redirect after showing success message
+                setTimeout(() => {
+                    window.location.href = 'uploading.html';
+                }, 1000);
+            } catch (err) {
+                console.error('Error:', err.message);
+                errorMessage.textContent = err.message || 'An unexpected error occurred. Please try again.';
+                errorMessage.style.display = 'block';
+                successMessage.style.display = 'none';
+            }
+        });
+
+    </script>
+</body>
+</html>
